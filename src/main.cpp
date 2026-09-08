@@ -407,8 +407,6 @@ void loop() {
   // 3. Safety Checks
   if (millis() - lastSafetyCheckTime >= 5000) {
     float tempDiff = currentTemp - lastSafetyTemp;
-    if (tempDiff <= -3.0) panic();
-    
     if (isHeating && (millis() - heatingStartTime > 30000)) { 
       if (tempDiff < 0.2 && currentTemp < (targetTemp - 2.0)) panic();
     }
