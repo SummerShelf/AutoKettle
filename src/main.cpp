@@ -65,14 +65,14 @@ float lastSafetyTemp = 0.0;
 
 // ================= Helpers =================
 void beep(int durationMs) {
-  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(BUZZER_PIN, HIGH);
   delay(durationMs);
   digitalWrite(BUZZER_PIN, LOW);
 }
 
 void playTargetReachedAlert() {
   for (int i = 0; i < 3; i++) {
-    digitalWrite(BUZZER_PIN, LOW);
+    digitalWrite(BUZZER_PIN, HIGH);
     delay(150);
     digitalWrite(BUZZER_PIN, LOW);
     delay(100);
@@ -104,7 +104,7 @@ void panic(int code) {
   u8g2.sendBuffer();
   
   for (int i = 0; i < 30; i++) {
-    digitalWrite(BUZZER_PIN, LOW);
+    digitalWrite(BUZZER_PIN, HIGH);
     delay(70);
     digitalWrite(BUZZER_PIN, LOW);
     delay(50);
