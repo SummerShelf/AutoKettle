@@ -478,7 +478,7 @@ void loop() {
         }
       }
   }
-  if (currentTemp >= realTargetTemp) {
+  if (currentTemp >= realTargetTemp&&hold) {
     repetition = 1;
     if (isHeating) stopHeating();
     if (!mode) {
