@@ -86,7 +86,7 @@ void pulseKettleSwitch(bool turnOn) {
   kettleServo.write(turnOn ? SERVO_ON_ANGLE : SERVO_OFF_ANGLE);  
   delay(PULSE_HOLD_MS); 
   kettleServo.write(SERVO_IDLE_ANGLE); 
-  delay(300); // Ensures mechanical return before code execution continues
+  delay(300); 
 }
 
 void panic(int code) {
@@ -198,6 +198,10 @@ const char HTML_INDEX[] = R"rawliteral(
 
   <script>
     const MAX_DATA_POINTS = 40; 
+    let previousWorkState = false;
+    let previousMode = false;
+    let audioCtx = null;
+    
     const ctx = document.getElementById('tempChart').getContext('2d');
     const tempChart = new Chart(ctx, {
       type: 'line',
@@ -214,11 +218,41 @@ const char HTML_INDEX[] = R"rawliteral(
         scales: { 
           x: { display: false }, 
           y: { type: 'linear', display: true, position: 'left', grid: { color: '#333' }, ticks: { color: '#aaa' }, suggestedMin: 20, suggestedMax: 100 },
-          y1: { type: 'linear', display: false, position: 'right', min: 0, max: 1 } // Hidden secondary axis just for the on/off shading
+          y1: { type: 'linear', display: false, position: 'right', min: 0, max: 1 } 
         },
         plugins: { legend: { labels: { color: '#ccc', font: { size: 12 } } } }
       }
     });
+
+    // Initializes Audio on user interaction to bypass autoplay restrictions
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playBrowserChime() {
+      if (!audioCtx) return;
+      try {
+        [880, 1174.66].forEach((freq, index) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (index * 0.15));
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime + (index * 0.15));
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (index * 0.15) + 0.3);
+          
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          
+          osc.start(audioCtx.currentTime + (index * 0.15));
+          osc.stop(audioCtx.currentTime + (index * 0.15) + 0.3);
+        });
+      } catch (e) { console.error("Audio error", e); }
+    }
 
     async function fetchData() {
       try {
@@ -229,6 +263,15 @@ const char HTML_INDEX[] = R"rawliteral(
         
         const statusEl = document.getElementById('status');
         const btn = document.getElementById('toggleBtn');
+
+        // Play sound when single cutoff completes
+        if (previousWorkState && !data.work && !previousMode) {
+          if (data.currentTemp >= (data.targetTemp - 1.5)) {
+            playBrowserChime();
+          }
+        }
+        previousWorkState = data.work;
+        previousMode = data.mode;
 
         if (!data.work) {
           statusEl.innerText = "Status: IDLE";
@@ -257,7 +300,7 @@ const char HTML_INDEX[] = R"rawliteral(
         tempChart.data.labels.push(now);
         tempChart.data.datasets[0].data.push(data.currentTemp);
         tempChart.data.datasets[1].data.push(data.targetTemp);
-        tempChart.data.datasets[2].data.push(data.isHeating ? 1 : 0); // 1 for ON, 0 for OFF
+        tempChart.data.datasets[2].data.push(data.isHeating ? 1 : 0); 
 
         if (tempChart.data.labels.length > MAX_DATA_POINTS) {
           tempChart.data.labels.shift();
@@ -276,6 +319,7 @@ const char HTML_INDEX[] = R"rawliteral(
     }
 
     async function togglePower() {
+      initAudio(); // Required here to enable browser sound playback securely
       await fetch('/control?action=toggle');
       fetchData();
     }
@@ -353,11 +397,10 @@ void setup() {
   // Set the custom static IP
   wm.setSTAStaticIPConfig(local_IP, gateway, subnet, primaryDNS);
 
-  // Automatically connect to the saved network or open the AP
   if(!wm.autoConnect("Kettle_SetupAP")) {
     Serial.println("Failed to connect or hit timeout");
     delay(3000);
-    ESP.restart(); // Reboot and try again
+    ESP.restart(); 
   }
   
   server.on("/", handleRoot);
@@ -426,7 +469,6 @@ void loop() {
   }
 
   // 4. Core Heating Logic
-
   
   // Master OFF switch enforcement
   if (!work) {
@@ -457,7 +499,7 @@ void loop() {
     if (currentTemp + OFFSET >= realTargetTemp) {
       stopHeating();
       hold=false;
-      heatingWaiting = millis() + 15000;//so it wont trigger pulsing phase before the temperature stabilitates
+      heatingWaiting = millis() + 15000;
     }
   }
 
