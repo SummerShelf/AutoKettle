@@ -23,9 +23,9 @@ WebServer server(80);
 #define PIN_IN2      26  
 #define PIN_SW       27  
 #define BUZZER_PIN   19  
-#define SERVO_PIN    13  
+#define SERVO_PIN    33  
 #define HEATING_LED_PIN 32
-#define OFFSET 15
+#define OFFSET 10
 #define DeathZone 2
 
 const int SERVO_IDLE_ANGLE = 90;    
@@ -43,6 +43,7 @@ Servo kettleServo;
 // ================= Variables =================
 volatile int targetTemp = 80;
 int realTargetTemp = 0;
+int fail=0;
 float currentTemp = 0.0;
 float startingTemp = 0.0;
 bool isHeating = false;
@@ -64,14 +65,14 @@ float lastSafetyTemp = 0.0;
 
 // ================= Helpers =================
 void beep(int durationMs) {
-  digitalWrite(BUZZER_PIN, HIGH);
+  digitalWrite(BUZZER_PIN, LOW);
   delay(durationMs);
   digitalWrite(BUZZER_PIN, LOW);
 }
 
 void playTargetReachedAlert() {
   for (int i = 0; i < 3; i++) {
-    digitalWrite(BUZZER_PIN, HIGH);
+    digitalWrite(BUZZER_PIN, LOW);
     delay(150);
     digitalWrite(BUZZER_PIN, LOW);
     delay(100);
@@ -88,7 +89,7 @@ void pulseKettleSwitch(bool turnOn) {
   delay(300); // Ensures mechanical return before code execution continues
 }
 
-void panic() {
+void panic(int code) {
   if (kettleServo.attached()) {
     kettleServo.write(SERVO_OFF_ANGLE);
     delay(600);
@@ -97,10 +98,13 @@ void panic() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x10_tf);
   u8g2.drawStr(0, 12, "PANIC - SYSTEM HALT");
+  char codeBuf[16];
+  snprintf(codeBuf, sizeof(codeBuf), "Code: %d", code);
+  u8g2.drawStr(0, 30, codeBuf);
   u8g2.sendBuffer();
   
   for (int i = 0; i < 30; i++) {
-    digitalWrite(BUZZER_PIN, HIGH);
+    digitalWrite(BUZZER_PIN, LOW);
     delay(70);
     digitalWrite(BUZZER_PIN, LOW);
     delay(50);
@@ -397,18 +401,25 @@ void loop() {
     float temp = sensors.getTempCByIndex(0);
     if (temp != DEVICE_DISCONNECTED_C && temp > -10.0) {
       currentTemp = temp;
+      int fail=0;
     } else {
-      panic();
+      fail++;
+      Serial.printf("fail: %d\n", fail);
+      if(fail>9){
+      Serial.println("connection fail panic");
+      panic(0);}
     }
     sensors.requestTemperatures();
     lastTempRequest = millis();
   }
 
-  // 3. Safety Checks
+  // 3. Safety Check for bulk temperature
   if (millis() - lastSafetyCheckTime >= 5000) {
     float tempDiff = currentTemp - lastSafetyTemp;
     if (isHeating && (millis() - heatingStartTime > 30000)) { 
-      if (tempDiff < 0.2 && currentTemp < (targetTemp - 2.0)) panic();
+      if (tempDiff < 0.2 && currentTemp < (targetTemp - 2.0)) {
+        Serial.println("temp down");
+        panic(1);}
     }
     lastSafetyTemp = currentTemp;
     lastSafetyCheckTime = millis();
@@ -470,8 +481,9 @@ void loop() {
         hold = false;
       }
     } else {
-      if (repetition >= 30) panic();
-      
+      if (repetition >= 30) {
+        Serial.println("repetition");
+        panic(2);}
       if (millis() >= heatingWaiting) {
         if (repetition % 2 == 0) {
           if (!isHeating) startHeating(); 
