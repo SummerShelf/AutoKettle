@@ -45,6 +45,8 @@ volatile int targetTemp = 80;
 int realTargetTemp = 0;
 int fail=0;
 float currentTemp = 0.0;
+float speedchecktemp=0.0;
+float heatingspeed=0.0;
 float startingTemp = 0.0;
 bool isHeating = false;
 bool targetReachedBuzzed = false;
@@ -61,6 +63,7 @@ unsigned long pressTime = 0;
 unsigned long heatingStartTime = 0;
 unsigned long lastSafetyCheckTime = 0;
 unsigned long heatingWaiting = 0; 
+unsigned long speedheatcheck=0;
 float lastSafetyTemp = 0.0;
 
 // ================= Helpers =================
@@ -467,6 +470,17 @@ void loop() {
     lastSafetyTemp = currentTemp;
     lastSafetyCheckTime = millis();
   }
+  if (millis() >= speedheatcheck) {
+  // Calculate degrees per second: (ΔTemp / ΔTime_ms) * 1000ms
+  unsigned long timePassed = millis() - (speedheatcheck - 1000);
+  if (timePassed > 0) {
+    heatingspeed = ((currentTemp - speedchecktemp) * 1000.0) / timePassed;
+  }
+
+  // Update baseline temperature and schedule the next check 1 second out
+  speedchecktemp = currentTemp;
+  speedheatcheck = millis() + 1000;
+}
 
   // 4. Core Heating Logic
   
@@ -508,10 +522,10 @@ void loop() {
       if (repetition >= 30) {
         Serial.println("repetition");
         panic(2);}
-      if (millis() >= heatingWaiting) {
+      if (millis() >= heatingWaiting||(heatingspeed<0.06&&repetition%2==0&&millis()>=heatingWaiting-15000)) {
         if (repetition % 2 == 0) {
           if (!isHeating) startHeating(); 
-          heatingWaiting = millis() + constrain (round((realTargetTemp-currentTemp)*333.33+2000),1500,15000);
+          heatingWaiting = millis() + constrain (round((realTargetTemp-currentTemp)*333.33+2000),1500,35000);
           repetition++;
         } else {
           if (isHeating) stopHeating();   
