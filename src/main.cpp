@@ -401,11 +401,11 @@ void loop() {
     float temp = sensors.getTempCByIndex(0);
     if (temp != DEVICE_DISCONNECTED_C && temp > -10.0) {
       currentTemp = temp;
-      int fail=0;
+      fail=0;
     } else {
       fail++;
       Serial.printf("fail: %d\n", fail);
-      if(fail>9){
+      if(fail>=25){
       Serial.println("connection fail panic");
       panic(0);}
     }
@@ -451,36 +451,18 @@ void loop() {
   }
 
   // Bulk Heating Phase
-  if (hold && work && realTargetTemp - startingTemp > OFFSET + 3 && realTargetTemp > startingTemp) {
+  if (hold && work && realTargetTemp - startingTemp > OFFSET + 3 && realTargetTemp > startingTemp&&millis() >= heatingWaiting) {
     if (!isHeating) startHeating();
     
     if (currentTemp + OFFSET >= realTargetTemp) {
       stopHeating();
-      if (!mode) {
-        playTargetReachedAlert();
-        work = false;
-        hold = false;
-      } else {
-        hold = false;
-        heatingWaiting = millis() + 10000;//so it wont trigger pulsing phase before the temperature stabilitates
-      }
+      hold=false;
+      heatingWaiting = millis() + 15000;//so it wont trigger pulsing phase before the temperature stabilitates
     }
   }
 
   // Precise Pulsing Phase
   if (hold && work && realTargetTemp - startingTemp <= OFFSET + 3 && realTargetTemp > startingTemp) {
-    if (currentTemp >= realTargetTemp) {
-      repetition = 1;
-      if (isHeating) stopHeating();
-      
-      if (!mode) {
-        work = false;
-        hold = false;
-        playTargetReachedAlert();
-      } else {
-        hold = false;
-      }
-    } else {
       if (repetition >= 30) {
         Serial.println("repetition");
         panic(2);}
@@ -495,6 +477,16 @@ void loop() {
           repetition++;
         }
       }
+  }
+  if (currentTemp >= realTargetTemp) {
+    repetition = 1;
+    if (isHeating) stopHeating();
+    if (!mode) {
+      work = false;
+      hold = false;
+      playTargetReachedAlert();
+    } else {
+      hold = false;
     }
   }
 
