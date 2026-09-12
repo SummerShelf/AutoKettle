@@ -529,7 +529,7 @@ void loop() {
           repetition++;
         } else {
           if (isHeating) stopHeating();   
-          heatingWaiting = millis() + 25000;
+          heatingWaiting = millis() + 30000;
           repetition++;
         }
       }
