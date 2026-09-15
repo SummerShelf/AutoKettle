@@ -525,7 +525,7 @@ void loop() {
       if (millis() >= heatingWaiting||(heatingspeed<0.06&&repetition%2==0&&millis()>=heatingWaiting-15000)) {
         if (repetition % 2 == 0) {
           if (!isHeating) startHeating(); 
-          heatingWaiting = millis() + constrain (round((realTargetTemp-currentTemp)*333.33+2000),1500,35000);
+          heatingWaiting = millis() + constrain (round((realTargetTemp-currentTemp)*450+1500),1500,35000);
           repetition++;
         } else {
           if (isHeating) stopHeating();   
