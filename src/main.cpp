@@ -29,7 +29,7 @@ WebServer server(80);
 #define DeathZone 2
 
 const int SERVO_IDLE_ANGLE = 90;    
-const int SERVO_ON_ANGLE   = 140;   
+const int SERVO_ON_ANGLE   = 133;   
 const int SERVO_OFF_ANGLE  = 40;    
 const int PULSE_HOLD_MS    = 600;   
 
